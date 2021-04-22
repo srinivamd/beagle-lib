@@ -202,6 +202,57 @@ fi
 AM_CONDITIONAL(BUILDOPENCL, test ! x$with_opencl = xno)
 
 # ------------------------------------------------------------------------------
+# Setup ROCM paths
+# ------------------------------------------------------------------------------
+AC_ARG_WITH([rocm],
+   [AS_HELP_STRING([--with-rocm=PATH],[prefix where ROCM is installed @<:@default=auto@:>@])],
+   [],
+   [with_cuda=no],
+   [with_rocm=auto])
+
+HIPCC=no
+HIPCC_CFLAGS=
+HIPCC_LIBS=
+
+if test "x$with_rocm" != "xno"
+then
+
+   HIPCC_CFLAGS+=" "
+   HIPCC_LIBS+=" "
+
+   if test "x$with_rocm" != "xauto"
+   then
+      ROCMPATH="$with_rocm"
+      ROCM_CFLAGS+=" -I$with_rocm/include"
+      ROCM_LIBS+=" -L$with_rocm/lib64 -L$with_rocm/lib -Wl,--enable-new-dtags -Wl,--rpath=$with_rocm/lib:$with_rocm/lib64:$with_rocm/opencl/lib"
+      LDFLAGS+=" -Wl,--enable-new-dtags -Wl,--rpath=$with_rocm/lib:$with_rocm/lib64:$with_rocm/opencl/lib "
+      OPENCL_LIBS+=" -L$with_rocm/opencl/lib "
+   else
+      AC_CHECK_FILE(/opt/rocm/,[ROCMPATH="/opt/rocm"],[])
+      AC_CHECK_FILE(/opt/rocm/include,[ROCM_CFLAGS+=" -I/opt/rocm/include"],[ROCM_CFLAGS=""])
+      AC_CHECK_FILE(/opt/rocm/lib$SUFFIX,[ROCM_LIBS+=" -L/opt/rocm/lib64  -L/opt/rocm/lib"],[])
+   fi
+fi
+
+if test "x$ROCM_CFLAGS" != "x"
+then
+   AC_PATH_PROG([HIPCC],[hipcc],[no],[$PATH:$ROCMPATH/bin])
+fi
+
+AM_CONDITIONAL(BUILDROCM, test ! x$HIPCC = xno)
+AC_SUBST(HIPCC)
+
+# ------------------------------------------------------------------------------
+# Setup hipcc flags
+# ------------------------------------------------------------------------------
+if test x$DEBUG = xtrue
+then
+   HIPCCFLAGS="-g"
+else
+   HIPCCFLAGS="-O3 --amdgpu-target=gfx906 --amdgpu-target=gfx908"
+fi
+
+# ------------------------------------------------------------------------------
 # Setup CUDA paths
 # ------------------------------------------------------------------------------
 AC_ARG_WITH([cuda],
